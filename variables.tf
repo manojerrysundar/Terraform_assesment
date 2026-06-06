@@ -88,9 +88,9 @@ variable "db_allocated_storage" {
 }
 
 variable "db_engine_version" {
-  description = "PostgreSQL engine version"
+  description = "PostgreSQL major version — AWS picks the latest available minor automatically"
   type        = string
-  default     = "16.4"
+  default     = "16"
 }
 
 variable "db_deletion_protection" {
