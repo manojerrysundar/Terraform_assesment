@@ -79,18 +79,19 @@ module "secrets" {
 module "rds" {
   source = "./modules/rds"
 
-  project_name          = var.project_name
-  environment           = var.environment
-  subnet_ids            = module.networking.private_subnet_ids
-  security_group_id     = module.security.rds_sg_id
-  db_name               = var.db_name
-  db_username           = var.db_username
+  project_name           = var.project_name
+  environment            = var.environment
+  subnet_ids             = module.networking.private_subnet_ids
+  security_group_id      = module.security.rds_sg_id
+  db_name                = var.db_name
+  db_username            = var.db_username
+  db_password            = module.secrets.db_password        # direct sensitive output (avoids plan-time data source issue)
   db_password_secret_arn = module.secrets.db_password_secret_arn
-  db_instance_class     = var.db_instance_class
-  db_allocated_storage  = var.db_allocated_storage
-  db_engine_version     = var.db_engine_version
-  deletion_protection   = var.db_deletion_protection
-  skip_final_snapshot   = var.db_skip_final_snapshot
+  db_instance_class      = var.db_instance_class
+  db_allocated_storage   = var.db_allocated_storage
+  db_engine_version      = var.db_engine_version
+  deletion_protection    = var.db_deletion_protection
+  skip_final_snapshot    = var.db_skip_final_snapshot
 
   depends_on = [module.secrets]
 }
@@ -108,6 +109,9 @@ module "elasticache" {
   node_type         = var.redis_node_type
   engine_version    = var.redis_engine_version
   auth_secret_arn   = module.secrets.redis_auth_secret_arn
+  redis_auth_token  = module.secrets.redis_auth_token   # direct sensitive output
+
+  depends_on = [module.secrets]
 }
 
 ###############################################################################

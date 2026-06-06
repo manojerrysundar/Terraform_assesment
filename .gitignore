@@ -1,0 +1,38 @@
+# Terraform state – NEVER commit these
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+
+# Crash log files
+crash.log
+crash.*.log
+
+# Terraform lock file (commit this to version control)
+# .terraform.lock.hcl   <- intentionally NOT ignored
+
+# Terraform working directory
+.terraform/
+.terraform.lock.hcl
+
+# tfvars files can contain secrets – be selective
+# terraform.tfvars      <- this project keeps defaults here (no secrets)
+*.auto.tfvars
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# AWS credentials – NEVER commit
+.env
+.env.*
+credentials
+aws_credentials*
+
+# macOS
+.DS_Store
+
+# Editor directories and files
+.idea/
+.vscode/
+*.swp
+*.swo

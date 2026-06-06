@@ -140,20 +140,36 @@ resource "aws_iam_role" "task" {
 }
 
 # Minimal CloudWatch Logs write access for the application itself
-resource "aws_iam_role_policy" "task_logs" {
-  name = "${local.name_prefix}-task-logs"
+resource "aws_iam_role_policy" "task_logs_and_exec" {
+  name = "${local.name_prefix}-task-logs-and-exec"
   role = aws_iam_role.task.id
 
+  # CloudWatch Logs: application logging
+  # SSM/SSMMessages: required for ECS Exec (enable_execute_command = true)
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [{
-      Effect = "Allow"
-      Action = [
-        "logs:CreateLogStream",
-        "logs:PutLogEvents"
-      ]
-      Resource = "arn:aws:logs:*:*:*"
-    }]
+    Statement = [
+      {
+        Sid    = "CloudWatchLogs"
+        Effect = "Allow"
+        Action = [
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ]
+        Resource = "arn:aws:logs:*:*:*"
+      },
+      {
+        Sid    = "ECSExec"
+        Effect = "Allow"
+        Action = [
+          "ssmmessages:CreateControlChannel",
+          "ssmmessages:CreateDataChannel",
+          "ssmmessages:OpenControlChannel",
+          "ssmmessages:OpenDataChannel"
+        ]
+        Resource = "*"
+      }
+    ]
   })
 }
 

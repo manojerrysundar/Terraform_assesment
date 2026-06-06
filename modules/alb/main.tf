@@ -16,11 +16,6 @@ resource "aws_lb" "this" {
 
   enable_deletion_protection = false
 
-  access_logs {
-    bucket  = ""
-    enabled = false
-  }
-
   tags = { Name = "${local.name_prefix}-alb" }
 }
 

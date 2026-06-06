@@ -24,31 +24,32 @@ resource "aws_elasticache_parameter_group" "this" {
   tags = { Name = "${local.name_prefix}-redis-param-group" }
 }
 
-# ── Redis auth token (read from Secrets Manager) ──────────────────────────────
-data "aws_secretsmanager_secret_version" "redis_auth" {
-  secret_id = var.auth_secret_arn
-}
-
 # ── Redis Replication Group (single-node for dev) ─────────────────────────────
+# NOTE: auth_token is passed directly from secrets module output (sensitive var)
+# to avoid a plan-time Secrets Manager data source chicken-and-egg problem.
+# auth_token_update_strategy is set to "ROTATE" which is required by the AWS
+# provider v5.x when transit_encryption_enabled = true.
 resource "aws_elasticache_replication_group" "this" {
   replication_group_id = "${local.name_prefix}-redis"
   description          = "Redis for ${local.name_prefix}"
 
-  engine               = "redis"
-  engine_version       = var.engine_version
-  node_type            = var.node_type
-  port                 = 6379
+  engine         = "redis"
+  engine_version = var.engine_version
+  node_type      = var.node_type
+  port           = 6379
 
-  # Single-node (no replica) – change num_cache_clusters for HA
-  num_cache_clusters   = 1
-  automatic_failover_enabled = false   # requires >= 2 nodes
+  # Single-node (no replica) – set num_cache_clusters = 2 + automatic_failover_enabled = true for HA
+  num_cache_clusters         = 1
+  automatic_failover_enabled = false
 
-  subnet_group_name  = aws_elasticache_subnet_group.this.name
-  security_group_ids = [var.security_group_id]
+  subnet_group_name    = aws_elasticache_subnet_group.this.name
+  security_group_ids   = [var.security_group_id]
   parameter_group_name = aws_elasticache_parameter_group.this.name
 
   # Auth + encryption
-  auth_token                 = data.aws_secretsmanager_secret_version.redis_auth.secret_string
+  # auth_token requires transit_encryption_enabled = true (TLS)
+  auth_token                 = var.redis_auth_token
+  auth_token_update_strategy = "ROTATE"  # required by AWS provider >=5.x when auth_token present
   transit_encryption_enabled = true
   at_rest_encryption_enabled = true
 

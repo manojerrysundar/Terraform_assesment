@@ -35,24 +35,25 @@ resource "aws_db_parameter_group" "this" {
 }
 
 # ── RDS Instance ──────────────────────────────────────────────────────────────
-data "aws_secretsmanager_secret_version" "db_password" {
-  secret_id = var.db_password_secret_arn
-}
-
+# NOTE: Password is passed directly from the secrets module output.
+# Using a Secrets Manager data source inside this module causes a plan-time
+# chicken-and-egg error on the very first apply (the secret version doesn't
+# exist yet). The secrets module generates the password via random_password
+# and exposes it as a sensitive output, so we reference that directly.
 resource "aws_db_instance" "this" {
   identifier = "${local.name_prefix}-postgres"
 
-  engine               = "postgres"
-  engine_version       = var.db_engine_version
-  instance_class       = var.db_instance_class
-  allocated_storage    = var.db_allocated_storage
+  engine                = "postgres"
+  engine_version        = var.db_engine_version
+  instance_class        = var.db_instance_class
+  allocated_storage     = var.db_allocated_storage
   max_allocated_storage = var.db_allocated_storage * 2
-  storage_type         = "gp3"
-  storage_encrypted    = true
+  storage_type          = "gp3"
+  storage_encrypted     = true
 
   db_name  = var.db_name
   username = var.db_username
-  password = jsondecode(data.aws_secretsmanager_secret_version.db_password.secret_string)["password"]
+  password = var.db_password   # sensitive, sourced from secrets module
 
   db_subnet_group_name   = aws_db_subnet_group.this.name
   vpc_security_group_ids = [var.security_group_id]
@@ -71,8 +72,8 @@ resource "aws_db_instance" "this" {
   monitoring_role_arn          = aws_iam_role.rds_enhanced_monitoring.arn
   performance_insights_enabled = true
 
-  deletion_protection = var.deletion_protection
-  skip_final_snapshot = var.skip_final_snapshot
+  deletion_protection       = var.deletion_protection
+  skip_final_snapshot       = var.skip_final_snapshot
   final_snapshot_identifier = var.skip_final_snapshot ? null : "${local.name_prefix}-postgres-final"
 
   tags = { Name = "${local.name_prefix}-postgres" }
