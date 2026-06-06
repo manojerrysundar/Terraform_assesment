@@ -12,14 +12,12 @@ terraform {
     }
   }
 
-  # Uncomment and configure for remote state
-  # backend "s3" {
-  #   bucket         = "your-tfstate-bucket"
-  #   key            = "ecs-platform/terraform.tfstate"
-  #   region         = "ap-south-1"
-  #   dynamodb_table = "terraform-locks"
-  #   encrypt        = true
-  # }
+  backend "s3" {
+    bucket  = "terraform-state-393229434298-ap-south-1"
+    key     = "ecs-platform/terraform.tfstate"
+    region  = "ap-south-1"
+    encrypt = true
+  }
 }
 
 provider "aws" {
