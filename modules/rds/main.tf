@@ -63,7 +63,7 @@ resource "aws_db_instance" "this" {
   publicly_accessible = false
 
   # Backup
-  backup_retention_period = 7
+  backup_retention_period = 0
   backup_window           = "02:00-03:00"
   maintenance_window      = "Mon:03:00-Mon:04:00"
 
