@@ -18,7 +18,7 @@ db_username            = "appuser"
 db_name                = "appdb"
 db_instance_class      = "db.t3.micro"
 db_allocated_storage   = 20
-db_engine_version      = "16.3"
+db_engine_version      = "16.4"
 db_deletion_protection = false
 db_skip_final_snapshot = true      # set to false for prod
 
