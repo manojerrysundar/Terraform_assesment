@@ -204,7 +204,8 @@ resource "aws_ecs_task_definition" "api" {
       secrets     = local.common_secrets
 
       healthCheck = {
-        command     = ["CMD-SHELL", "wget -qO- http://localhost:${var.api_port}/ || exit 1"]
+        # nc (netcat) is available in busybox/alpine; works for nginxdemos/hello and most images
+        command     = ["CMD-SHELL", "nc -z 127.0.0.1 ${var.api_port} || exit 1"]
         interval    = 30
         timeout     = 5
         retries     = 3
@@ -254,7 +255,7 @@ resource "aws_ecs_task_definition" "orders" {
       secrets     = local.common_secrets
 
       healthCheck = {
-        command     = ["CMD-SHELL", "wget -qO- http://localhost:${var.orders_port}/ || exit 1"]
+        command     = ["CMD-SHELL", "nc -z 127.0.0.1 ${var.orders_port} || exit 1"]
         interval    = 30
         timeout     = 5
         retries     = 3
@@ -304,7 +305,7 @@ resource "aws_ecs_task_definition" "inventory" {
       secrets     = local.common_secrets
 
       healthCheck = {
-        command     = ["CMD-SHELL", "wget -qO- http://localhost:${var.inventory_port}/ || exit 1"]
+        command     = ["CMD-SHELL", "nc -z 127.0.0.1 ${var.inventory_port} || exit 1"]
         interval    = 30
         timeout     = 5
         retries     = 3
