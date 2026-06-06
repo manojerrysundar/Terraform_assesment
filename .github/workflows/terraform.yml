@@ -1,0 +1,175 @@
+name: Terraform
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Triggers
+#  • push to main          → runs Plan automatically
+#  • workflow_dispatch      → lets you manually run Apply or Destroy
+# ─────────────────────────────────────────────────────────────────────────────
+on:
+  push:
+    branches:
+      - main
+
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "Action to run"
+        required: true
+        type: choice
+        options:
+          - apply
+          - destroy
+
+permissions:
+  contents: write   # needed to commit terraform.tfstate back to the repo
+
+env:
+  TF_VERSION: "1.9.8"
+  AWS_REGION:  "ap-south-1"
+
+jobs:
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # JOB 1 — Plan
+  # Runs automatically on every push to main.
+  # Shows exactly what will be created / changed / destroyed.
+  # ───────────────────────────────────────────────────────────────────────────
+  plan:
+    name: "Terraform Plan"
+    runs-on: ubuntu-latest
+    # Run on push to main, OR when the user manually chose "apply" or "destroy"
+    if: github.event_name == 'push' || github.event.inputs.action == 'apply' || github.event.inputs.action == 'destroy'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region:            ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Plan
+        run: |
+          if [ "${{ github.event.inputs.action }}" = "destroy" ]; then
+            terraform plan -destroy -no-color -input=false
+          else
+            terraform plan -no-color -input=false
+          fi
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # JOB 2 — Apply  (manual trigger only + environment approval gate)
+  #
+  # HOW TO RUN:
+  #   GitHub repo → Actions → Terraform → Run workflow → action: apply → Run
+  #   Then approve in the "Waiting for approval" gate before it executes.
+  #
+  # SETUP REQUIRED (one time):
+  #   GitHub repo → Settings → Environments → New environment → name: "apply"
+  #   → Required reviewers → add yourself → Save
+  # ───────────────────────────────────────────────────────────────────────────
+  apply:
+    name: "Terraform Apply"
+    runs-on: ubuntu-latest
+    needs: plan
+    if: github.event.inputs.action == 'apply'
+    environment: apply        # ← triggers the manual approval gate
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region:            ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve -input=false
+
+      # Commit the updated state file back to the repo so the next run
+      # knows what resources already exist. [skip ci] stops an apply loop.
+      - name: Commit State File
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add terraform.tfstate terraform.tfstate.backup 2>/dev/null || true
+          git diff --staged --quiet || git commit -m "chore: update terraform state [skip ci]"
+          git push
+
+      - name: Show Outputs
+        run: |
+          echo ""
+          echo "============================================"
+          echo "  API endpoint:"
+          terraform output alb_dns_name
+          echo "============================================"
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # JOB 3 — Destroy  (manual trigger only + environment approval gate)
+  #
+  # HOW TO RUN:
+  #   GitHub repo → Actions → Terraform → Run workflow → action: destroy → Run
+  #   Then approve in the "Waiting for approval" gate before it executes.
+  #
+  # SETUP REQUIRED (one time):
+  #   GitHub repo → Settings → Environments → New environment → name: "destroy"
+  #   → Required reviewers → add yourself → Save
+  # ───────────────────────────────────────────────────────────────────────────
+  destroy:
+    name: "Terraform Destroy"
+    runs-on: ubuntu-latest
+    needs: plan
+    if: github.event.inputs.action == 'destroy'
+    environment: destroy      # ← triggers the manual approval gate
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region:            ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Destroy
+        run: terraform destroy -auto-approve -input=false
+
+      # Commit the emptied state file after destroy
+      - name: Commit State File
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add terraform.tfstate terraform.tfstate.backup 2>/dev/null || true
+          git diff --staged --quiet || git commit -m "chore: clear terraform state after destroy [skip ci]"
+          git push
