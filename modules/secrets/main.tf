@@ -24,6 +24,10 @@ resource "aws_secretsmanager_secret" "db_password" {
   description             = "PostgreSQL master password for ${local.name_prefix}"
   recovery_window_in_days = var.recovery_window
 
+  # Prevents "already exists" if a previous partial apply left this secret
+  # behind. Safe because recovery_window_in_days = 0 means instant delete.
+  force_overwrite_replica_secret = true
+
   tags = { Name = "${local.name_prefix}-secret-db-password" }
 }
 
@@ -41,6 +45,9 @@ resource "aws_secretsmanager_secret" "redis_auth" {
   name                    = "${local.name_prefix}/redis/auth-token"
   description             = "Redis auth token for ${local.name_prefix}"
   recovery_window_in_days = var.recovery_window
+
+  # Same protection as above
+  force_overwrite_replica_secret = true
 
   tags = { Name = "${local.name_prefix}-secret-redis-auth" }
 }
